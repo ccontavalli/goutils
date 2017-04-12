@@ -1,0 +1,6 @@
+{{ define "start" }}
+{
+    "From": "My own team <validation@test.org>",
+    "Subject": "Welcome to foo - Validate your email now"
+}
+{{ end }}
