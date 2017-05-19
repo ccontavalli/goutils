@@ -26,6 +26,13 @@ func TestNewStaticTemplatesSimple(t *testing.T) {
 	})
 
 	assert.Equal(nil, err)
+
+	// Templates not compiled.
+	assert.Equal(0, len(st.templates))
+	assert.Nil(st.templates["test"])
+	st.Compile()
+
+	// Templates compiled.
 	assert.Equal(1, len(st.templates))
 	assert.NotEqual(nil, st.templates["test"])
 }
@@ -47,27 +54,36 @@ func TestNewStaticTemplatesCombined(t *testing.T) {
 	})
 
 	assert.Equal(nil, err)
-	assert.Equal(4, len(st.templates))
-	assert.NotEqual(nil, st.templates["test"])
-	assert.NotEqual(nil, st.templates["foo"])
-	assert.NotEqual(nil, st.templates["bar"])
-	assert.NotEqual(nil, st.templates["bus"])
+	assert.Equal(0, len(st.templates))
+	assert.Equal(4, len(st.bases))
+	assert.NotEqual(nil, st.bases["test"])
+	assert.NotEqual(nil, st.bases["foo"])
+	assert.NotEqual(nil, st.bases["bar"])
+	assert.NotEqual(nil, st.bases["bus"])
 
 	buffer := bytes.Buffer{}
-	assert.Equal(nil, st.Expand("test", struct{}{}, &buffer))
+	assert.Nil(st.Expand("test", struct{}{}, &buffer))
 	assert.Equal("start ", buffer.String())
+	assert.Equal(4, len(st.templates))
 
 	buffer.Reset()
-	assert.Equal(nil, st.Expand("foo", struct{}{}, &buffer))
+	assert.Nil(st.Expand("foo", struct{}{}, &buffer))
 	assert.Equal("start nested ", buffer.String())
 
 	buffer.Reset()
-	assert.Equal(nil, st.Expand("bar", struct{}{}, &buffer))
+	assert.Nil(st.Expand("bar", struct{}{}, &buffer))
 	assert.Equal("start nested mine", buffer.String())
 
 	buffer.Reset()
-	assert.Equal(nil, st.Expand("bus", struct{}{}, &buffer))
+	assert.Nil(st.Expand("bus", struct{}{}, &buffer))
 	assert.Equal("mine munch", buffer.String())
+
+	// Repeat some of the tests with inheritance.
+	st = NewStaticTemplatesFromParent(st)
+	buffer.Reset()
+	assert.Nil(st.Expand("test", struct{}{}, &buffer))
+	assert.Equal("start ", buffer.String())
+	assert.Equal(0, len(st.templates))
 }
 
 func TestNewStaticTemplatesFromDir(t *testing.T) {
@@ -80,10 +96,10 @@ func TestNewStaticTemplatesFromDir(t *testing.T) {
 	st, err = NewStaticTemplatesFromDir("test", nil)
 	assert.Nil(err)
 
-	assert.Equal(3, len(st.templates))
-	assert.NotEqual(nil, st.templates["template0"])
-	assert.NotEqual(nil, st.templates["template1"])
-	assert.NotEqual(nil, st.templates["template2"])
+	assert.Equal(3, len(st.bases))
+	assert.NotEqual(nil, st.bases["template0"])
+	assert.NotEqual(nil, st.bases["template1"])
+	assert.NotEqual(nil, st.bases["template2"])
 }
 
 func TestNewStaticTemplatesFromMap(t *testing.T) {
@@ -98,8 +114,8 @@ func TestNewStaticTemplatesFromMap(t *testing.T) {
 	assert.Nil(err)
 	assert.NotNil(st)
 
-	assert.Equal(3, len(st.templates))
-	assert.NotEqual(nil, st.templates["template0"])
-	assert.NotEqual(nil, st.templates["template1"])
-	assert.NotEqual(nil, st.templates["template2"])
+	assert.Equal(3, len(st.bases))
+	assert.NotEqual(nil, st.bases["template0"])
+	assert.NotEqual(nil, st.bases["template1"])
+	assert.NotEqual(nil, st.bases["template2"])
 }

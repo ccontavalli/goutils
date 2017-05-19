@@ -70,7 +70,18 @@ import (
 	"strings"
 )
 
+type TemplateData struct {
+	// The content of a template - as read from disk.
+	Content []byte
+	// The name fo the templates needed by this template to expand.
+	Parents []string
+}
+
 type StaticTemplates struct {
+	parent     *StaticTemplates
+	configurer TemplateConfigurer
+
+	bases     map[string]TemplateData
 	templates map[string]*template.Template
 }
 
@@ -133,70 +144,13 @@ func NewStaticTemplates(
 	configureTemplate TemplateConfigurer,
 	getFileContent TemplateReader) (*StaticTemplates, error) {
 
-	type BaseData struct {
-		content []byte
-		parents []string
-	}
+	result := &StaticTemplates{nil, configureTemplate, make(map[string]TemplateData), nil}
+	return result, result.ParseBulk(files, getFileContent)
+}
 
-	bases := make(map[string]BaseData)
-	for _, file := range files {
-		if file[0] == '.' {
-			continue
-		}
-
-		content, err := getFileContent(file)
-		if err != nil {
-			return nil, err
-		}
-
-		// For a file like: "my-template=foo,bar,baz.tmpl" we want to have:
-		// - basename (used as key) "my-template"
-		// - parents "foo,bar,baz"
-		filename := path.Base(file)
-		filename = filename[0 : len(filename)-len(filepath.Ext(filename))]
-
-		split := strings.SplitN(filename, "=", 2)
-		basename := split[0]
-		parents := []string{}
-		if len(split) > 1 && len(split[1]) > 0 {
-			parents = strings.Split(split[1], ",")
-		}
-		bases[basename] = BaseData{content, parents}
-	}
-
-	result := &StaticTemplates{make(map[string]*template.Template)}
-
-	var err error
-	for name, data := range bases {
-		tpl := template.New(name)
-		if configureTemplate != nil {
-			tpl, err = configureTemplate(tpl)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		tpl, err := tpl.Parse(string(data.content))
-		if err != nil {
-			return nil, err
-		}
-
-		for i := len(data.parents) - 1; i >= 0; i-- {
-			base := data.parents[i]
-			data, ok := bases[base]
-			if !ok {
-				return nil, &TemplateNotFoundError{base}
-			}
-
-			tpl, err = tpl.Parse(string(data.content))
-			if err != nil {
-				return nil, err
-			}
-		}
-		result.templates[name] = tpl
-	}
-
-	return result, nil
+// Creates a new StaticTemplates object from another StaticTemplates object.
+func NewStaticTemplatesFromParent(parent *StaticTemplates) *StaticTemplates {
+	return &StaticTemplates{parent, parent.configurer, make(map[string]TemplateData), nil}
 }
 
 // Error returned when no template can be found by the specified name.
@@ -211,8 +165,8 @@ func (t *TemplateNotFoundError) Error() string {
 
 // Expands the specified template, using the supplied data into the supplied writer.
 func (self *StaticTemplates) Expand(name string, data interface{}, writer io.Writer) error {
-	tpl, ok := self.templates[name]
-	if !ok {
+	tpl := self.Get(name)
+	if tpl == nil {
 		return &TemplateNotFoundError{name}
 	}
 
@@ -221,5 +175,121 @@ func (self *StaticTemplates) Expand(name string, data interface{}, writer io.Wri
 
 // Returns the template object corresponding to a name, or nil.
 func (self *StaticTemplates) Get(name string) *template.Template {
-	return self.templates[name]
+	parent := self
+	for parent != nil {
+		if parent.templates == nil {
+			parent.Compile()
+		}
+
+		tpl := parent.templates[name]
+		if tpl != nil {
+			return tpl
+		}
+
+		parent = parent.parent
+	}
+	return nil
+}
+
+// Parses a set of templates, and prepares to use them.
+// This is useful if you need to load more templates after the object was created.
+// Note that parsing templates requires recompiling all templates loaded before.
+func (self *StaticTemplates) ParseBulk(files []string, getFileContent TemplateReader) error {
+	for _, file := range files {
+		if file[0] == '.' {
+			continue
+		}
+
+		content, err := getFileContent(file)
+		if err != nil {
+			return err
+		}
+
+		err = self.Parse(file, content)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Parses a template, and prepares to use it.
+// This is useful if you need to load more temolates after the object was created.
+// Note that parsing templates requires recompiling all templates loaded before.
+func (self *StaticTemplates) Parse(file string, content []byte) error {
+	// For a file like: "my-template=foo,bar,baz.tmpl" we want to have:
+	// - basename (used as key) "my-template"
+	// - parents "foo,bar,baz"
+	filename := path.Base(file)
+	filename = filename[0 : len(filename)-len(filepath.Ext(filename))]
+
+	split := strings.SplitN(filename, "=", 2)
+	basename := split[0]
+	parents := []string{}
+	if len(split) > 1 && len(split[1]) > 0 {
+		parents = strings.Split(split[1], ",")
+	}
+
+	if _, ok := self.bases[basename]; ok {
+		return fmt.Errorf("Base %s already loaded", basename)
+	}
+
+	self.templates = nil
+	self.bases[basename] = TemplateData{content, parents}
+	return nil
+}
+
+// Returns the TemplateData struct associated with this template. Specifically, the
+// set of computed parents, and the byte content of the template.
+func (self *StaticTemplates) GetTemplateData(tpl string) (TemplateData, bool) {
+	parent := self
+	for parent != nil {
+		data, ok := parent.bases[tpl]
+		if ok {
+			return data, true
+		}
+
+		parent = parent.parent
+	}
+
+	return TemplateData{}, false
+}
+
+// Compiles all parsed templates.
+// This is run on the first expansion of a template automatically. It is recommended
+// you compile all templates yourself only if you don't want to block on the first request.
+func (self *StaticTemplates) Compile() error {
+	self.templates = make(map[string]*template.Template)
+
+	var err error
+	for name, data := range self.bases {
+		tpl := template.New(name)
+		if self.configurer != nil {
+			tpl, err = self.configurer(tpl)
+			if err != nil {
+				return err
+			}
+		}
+
+		tpl, err := tpl.Parse(string(data.Content))
+		if err != nil {
+			return err
+		}
+
+		for i := len(data.Parents) - 1; i >= 0; i-- {
+			base := data.Parents[i]
+			data, ok := self.GetTemplateData(base)
+			if !ok {
+				return &TemplateNotFoundError{base}
+			}
+
+			tpl, err = tpl.Parse(string(data.Content))
+			if err != nil {
+				return err
+			}
+		}
+		self.templates[name] = tpl
+	}
+	return nil
 }
