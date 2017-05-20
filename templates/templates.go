@@ -205,7 +205,7 @@ func (self *StaticTemplates) ParseBulk(files []string, getFileContent TemplateRe
 			return err
 		}
 
-		err = self.Parse(file, content)
+		_, err = self.Parse(file, content)
 		if err != nil {
 			return err
 		}
@@ -217,7 +217,27 @@ func (self *StaticTemplates) ParseBulk(files []string, getFileContent TemplateRe
 // Parses a template, and prepares to use it.
 // This is useful if you need to load more temolates after the object was created.
 // Note that parsing templates requires recompiling all templates loaded before.
-func (self *StaticTemplates) Parse(file string, content []byte) error {
+//
+// Returns the name of the template loaded, or an error.
+func (self *StaticTemplates) Parse(file string, content []byte) (string, error) {
+	// For a file like: "my-template=foo,bar,baz.tmpl" we want to have:
+	// - basename (used as key) "my-template"
+	// - parents "foo,bar,baz"
+	basename, parents := self.SplitName(file)
+	if _, ok := self.bases[basename]; ok {
+		return basename, fmt.Errorf("Base %s already loaded", basename)
+	}
+
+	self.templates = nil
+	self.bases[basename] = TemplateData{content, parents}
+	return basename, nil
+}
+
+// Given the path of a template, returns the name by which the template
+// will be known, and the list of parent templates.
+//
+// This implements the parsing of names like "/tmp/blog-post=document,base.tpl"
+func (self *StaticTemplates) SplitName(file string) (string, []string) {
 	// For a file like: "my-template=foo,bar,baz.tmpl" we want to have:
 	// - basename (used as key) "my-template"
 	// - parents "foo,bar,baz"
@@ -231,13 +251,7 @@ func (self *StaticTemplates) Parse(file string, content []byte) error {
 		parents = strings.Split(split[1], ",")
 	}
 
-	if _, ok := self.bases[basename]; ok {
-		return fmt.Errorf("Base %s already loaded", basename)
-	}
-
-	self.templates = nil
-	self.bases[basename] = TemplateData{content, parents}
-	return nil
+        return basename, parents
 }
 
 // Returns the TemplateData struct associated with this template. Specifically, the
