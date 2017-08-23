@@ -251,7 +251,7 @@ func (self *StaticTemplates) SplitName(file string) (string, []string) {
 		parents = strings.Split(split[1], ",")
 	}
 
-        return basename, parents
+	return basename, parents
 }
 
 // Returns the TemplateData struct associated with this template. Specifically, the
