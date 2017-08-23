@@ -15,26 +15,26 @@
 package gtemplates
 
 import (
-        "github.com/ccontavalli/goutils/templates"
-        "github.com/gin-gonic/gin/render"
-        "html/template"
-        "fmt"
-        "net/http"
+	"fmt"
+	"github.com/ccontavalli/goutils/templates"
+	"github.com/gin-gonic/gin/render"
+	"html/template"
+	"net/http"
 )
 
 type HTMLRender templates.StaticTemplates
 
 type Render struct {
-  template *template.Template
-  data interface{}
+	template *template.Template
+	data     interface{}
 }
 
 func (r *Render) Render(w http.ResponseWriter) error {
-  if r.template == nil {
-    return fmt.Errorf("Template not found")
-  }
+	if r.template == nil {
+		return fmt.Errorf("Template not found")
+	}
 
-  return r.template.ExecuteTemplate(w, "start", r.data)
+	return r.template.ExecuteTemplate(w, "start", r.data)
 }
 
 func (self *HTMLRender) Instance(name string, data interface{}) render.Render {
