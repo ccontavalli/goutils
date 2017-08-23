@@ -37,6 +37,19 @@ func (r *Render) Render(w http.ResponseWriter) error {
 	return r.template.ExecuteTemplate(w, "start", r.data)
 }
 
+var htmlContentType = []string{"text/html; charset=utf-8"}
+
+func writeContentType(w http.ResponseWriter, value []string) {
+	header := w.Header()
+	if val := header["Content-Type"]; len(val) == 0 {
+		header["Content-Type"] = value
+	}
+}
+
+func (r *Render) WriteContentType(w http.ResponseWriter) {
+	writeContentType(w, htmlContentType)
+}
+
 func (self *HTMLRender) Instance(name string, data interface{}) render.Render {
 	return &Render{(*templates.StaticTemplates)(self).Get(name), data}
 }
