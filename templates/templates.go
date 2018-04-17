@@ -12,7 +12,7 @@ In those columns, the content is filled by expanding other templates.
 
 You now have, for example, a "home.tmpl" page, that by using "base.tmpl", shows the main page
 of your web site. Or a "news.tmpl" or "projects.tmpl", that by always using the skeleton in the
-"base.tmpl" and same layout, show different things.
+"base.tmpl" and same layout, shows different things.
 
 Traditionally, you'd have to configure the template inheritance mechanisms manually, or by
 invoking methods on the templates themselves.
@@ -215,7 +215,7 @@ func (self *StaticTemplates) ParseBulk(files []string, getFileContent TemplateRe
 }
 
 // Parses a template, and prepares to use it.
-// This is useful if you need to load more temolates after the object was created.
+// This is useful if you need to load more templates after the object was created.
 // Note that parsing templates requires recompiling all templates loaded before.
 //
 // Returns the name of the template loaded, or an error.

@@ -29,3 +29,12 @@ func SortedHasString(list []string, tofind string) bool {
 	}
 	return false
 }
+
+func ArrayStringIndex(list []string, tofind string) int {
+	for i := range list {
+		if list[i] == tofind {
+			return i
+		}
+	}
+	return -1
+}
