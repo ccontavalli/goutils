@@ -2,16 +2,16 @@ package misc
 
 import (
 	"github.com/stretchr/testify/assert"
-	"testing"
 	"net"
+	"testing"
 	//    "fmt"
 )
 
 func TestValid(t *testing.T) {
 	assert := assert.New(t)
-	inputs := []struct{
+	inputs := []struct {
 		data, host, port string
-		compatible bool
+		compatible       bool
 	}{
 		{"fuffa", "fuffa", "", false},
 		{"[::]", "::", "", false},

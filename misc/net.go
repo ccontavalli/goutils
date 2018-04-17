@@ -1,8 +1,8 @@
 package misc
 
 import (
-"net"
-"strings"
+	"net"
+	"strings"
 )
 
 // Like net.SplitHostPort, but the port is optional.
@@ -13,7 +13,7 @@ func SplitHostPort(hostport string) (host, port string, err error) {
 	}
 
 	hoststart, hostend := 0, 0
-        portstart := len(hostport)
+	portstart := len(hostport)
 	if len(hostport) >= 1 && hostport[0] == '[' {
 		hoststart = 1
 		hostend = strings.IndexByte(hostport, ']')
@@ -56,5 +56,3 @@ func SplitHostPort(hostport string) (host, port string, err error) {
 
 	return host, port, nil
 }
-
-
