@@ -4,7 +4,39 @@ package http
 
 import (
 	"strings"
+	"net/http"
+	"github.com/ccontavalli/goutils/misc"
+	"golang.org/x/net/idna"
 )
+
+// Normalizes an hostname as received from a well behaving browser.
+// Useful for later matching the string in a router.
+func NormalizeRequestHostname(def string) string {
+	return strings.ToLower(def)
+}
+
+// Normalizes an hostname as typed by a user. Specifically, it takes
+// care of converting unicode characters in the equivalent punycode.
+func NormalizeUserHostname(def string) (string, error) {
+	result, err := idna.ToASCII(def)
+	if err != nil {
+		return def, err
+	}
+	return NormalizeRequestHostname(result), nil
+}
+
+// Extracts the hostname in a received HTTP request.
+// If no hostname can be found, returns the supplied default.
+// Does not perform any normalization.
+func GetHost(r *http.Request, def string) string {
+	if r.Host != "" {
+		return misc.LooselyGetHost(r.Host)
+	}
+	if r.URL != nil && r.URL.Host != "" {
+		return misc.LooselyGetHost(r.URL.Host)
+	}
+	return misc.LooselyGetHost(def)
+}
 
 // Lazily parse an "Accept-Encoding" header, returns true if the
 // specified encoding is supported.

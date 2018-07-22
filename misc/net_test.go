@@ -7,7 +7,28 @@ import (
 	//    "fmt"
 )
 
-func TestValid(t *testing.T) {
+func TestLooselyGetHost(t *testing.T) {
+	assert := assert.New(t)
+	testcases := []struct {
+		input, expected string
+	}{
+		{"", ""},
+		{":80", ""},
+		{"[::]", "::"},
+		{"0", "0"},
+		{"0:80", "0"},
+		{"fuffa:80", "fuffa"},
+		{"[::1]:443", "::1"},
+		{"[::1:443", "::1:443"},
+		{"127.0.0.1:80:80", "127.0.0.1"},
+		{"[::1]]]:443", "::1"},
+	}
+	for _, testcase := range testcases {
+		assert.Equal(testcase.expected, LooselyGetHost(testcase.input))
+	}
+}
+
+func TestSplitHostPortValid(t *testing.T) {
 	assert := assert.New(t)
 	inputs := []struct {
 		data, host, port string
@@ -42,7 +63,7 @@ func TestValid(t *testing.T) {
 	}
 }
 
-func TestInvalid(t *testing.T) {
+func TestSplitHostPortInvalid(t *testing.T) {
 	assert := assert.New(t)
 	inputs := []string{
 		"::",

@@ -3,7 +3,37 @@ package misc
 import (
 	"net"
 	"strings"
+	"strconv"
 )
+
+// Faster version of net.SplitHostPort which performs no checks, and returns
+// the host part only of an hostport pair.
+func LooselyGetHost(hostport string) string {
+	hoststart, hostend := 0, 0
+	if len(hostport) >= 1 && hostport[0] == '[' {
+		hoststart = 1
+		hostend = strings.IndexByte(hostport, ']')
+	} else {
+		hostend = strings.IndexByte(hostport, ':')
+	}
+	if hostend < 0 {
+		hostend = len(hostport)
+	}
+	return hostport[hoststart:hostend]
+}
+
+// Like net.JoinHostPort, but the port is added only if != 0.
+func OptionallyJoinHostPort(host string, port int) string {
+	is_ipv6 := strings.IndexByte(host, ':') >= 0
+	has_port := port > 0
+	if is_ipv6 {
+		host = "[" + host + "]"
+	}
+	if has_port {
+		host += ":" + strconv.Itoa(port)
+	}
+	return host
+}
 
 // Like net.SplitHostPort, but the port is optional.
 // If no port is specified, an empty string will be returned.
