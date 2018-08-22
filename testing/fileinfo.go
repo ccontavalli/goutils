@@ -1,17 +1,17 @@
 package gutesting
 
 import (
-"time"
-"os"
+	"os"
+	"time"
 )
 
 type MockFileInfo struct {
-	NameValue string
-	SizeValue int64
-	ModeValue os.FileMode
+	NameValue    string
+	SizeValue    int64
+	ModeValue    os.FileMode
 	ModTimeValue time.Time
-	IsDirValue bool
-	SysValue interface{}
+	IsDirValue   bool
+	SysValue     interface{}
 }
 
 func (mfi *MockFileInfo) Name() string {
@@ -37,4 +37,3 @@ func (mfi *MockFileInfo) IsDir() bool {
 func (mfi *MockFileInfo) Sys() interface{} {
 	return mfi.SysValue
 }
-

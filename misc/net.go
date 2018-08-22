@@ -2,8 +2,8 @@ package misc
 
 import (
 	"net"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 // Faster version of net.SplitHostPort which performs no checks, and returns

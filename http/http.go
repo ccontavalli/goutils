@@ -3,10 +3,10 @@
 package http
 
 import (
-	"strings"
-	"net/http"
 	"github.com/ccontavalli/goutils/misc"
 	"golang.org/x/net/idna"
+	"net/http"
+	"strings"
 )
 
 // Normalizes an hostname as received from a well behaving browser.
