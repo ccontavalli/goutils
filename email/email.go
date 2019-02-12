@@ -46,7 +46,7 @@ type SmtpTransport struct {
 //
 // To use it:
 //
-//     transport := SmptTransport{
+//     transport := SmtpTransport{
 //       Server: "smtp.gmail.com",
 //       Port: 587,
 //       Username: "foo",
