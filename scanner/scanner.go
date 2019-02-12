@@ -31,10 +31,17 @@ type scanDirState struct {
 // - a subdirectory pointing to a parent directory, or a subdirectory
 //   with a link to another directory which in turn contains a link pointing
 //   back to itself. These are detected by the code.
-func ScanTree(base string, state interface{}, pdir ProcessDir, pfile ProcessFile, perr ProcessError) error {
+func ScanTree(base string, state interface{}, pdir ProcessDir, pfile ProcessFile, perr ProcessError) {
 	// Directories to recurse into.
 	dirs := NewScanDirStateQueue(128)
-	dirs.Push(scanDirState{state, filepath.Clean(base), nil, make(map[string]struct{})})
+	base = filepath.Clean(base)
+
+	stats, err := os.Stat(base)
+	if err != nil {
+		perr(state, base, err)
+		return
+	}
+	dirs.Push(scanDirState{state, filepath.Clean(base), stats, make(map[string]struct{})})
 
 	/* Pseudo code:
 	   - read all files in the directory.
@@ -109,7 +116,6 @@ func ScanTree(base string, state interface{}, pdir ProcessDir, pfile ProcessFile
 						sub_parents[key] = value
 					}
 					sub_parents[absolute] = struct{}{}
-
 				}
 				dirs.Push(scanDirState{state, fullpath, file, sub_parents})
 
@@ -126,5 +132,5 @@ func ScanTree(base string, state interface{}, pdir ProcessDir, pfile ProcessFile
 		}
 	}
 
-	return nil
+	return
 }
