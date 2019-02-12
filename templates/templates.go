@@ -38,9 +38,13 @@ To make use of those templates, all you have to do in code is:
 
     // Load and parse - once - all the templates in the "./templates" directory.
     //
-    // nil is an optional callback function run on each template. You can use it,
+    // The first nil is an optional pre-created StaticTemplates object, acting as
+    // a fallback. Expand (explained below) will look for a template in the current
+    // object, and if not found, descend into fallback parents.
+    //
+    // The last nil is an optional callback function run on each template. You can use it,
     // for example, to configure your own template functions or delimiters.
-    templates, err := NewStaticTemplatesFromDir("./templates", nil)
+    templates, err := NewStaticTemplatesFromDir(nil, "./templates", nil)
 
     // Expand a template into an io.Writer of choice, passing in some data.
     templates.Expand(
@@ -102,14 +106,14 @@ type TemplateConfigurer func(*template.Template) (*template.Template, error)
 // The map uses the name of the template as a key, exactly as if the template was read from disk,
 // while the value is the content of the template as a byte array.
 // Returns a StaticTemplates object, or an error.
-func NewStaticTemplatesFromMap(templates map[string][]byte, configurer TemplateConfigurer) (*StaticTemplates, error) {
+func NewStaticTemplatesFromMap(parent *StaticTemplates, templates map[string][]byte, configurer TemplateConfigurer) (*StaticTemplates, error) {
 	names := make([]string, len(templates))
 	index := 0
 	for key, _ := range templates {
 		names[index] = key
 		index += 1
 	}
-	return NewStaticTemplates(names, configurer, func(filename string) ([]byte, error) {
+	return NewStaticTemplates(parent, names, configurer, func(filename string) ([]byte, error) {
 		content, ok := templates[filename]
 		if !ok {
 			return []byte{}, os.ErrNotExist
@@ -122,7 +126,7 @@ func NewStaticTemplatesFromMap(templates map[string][]byte, configurer TemplateC
 // Creates a new StaticTemplates object from a directory on the file system.
 //
 // Does not descend into subdirectories, does not expect anything else but templates in this directory.
-func NewStaticTemplatesFromDir(directory string, configurer TemplateConfigurer) (*StaticTemplates, error) {
+func NewStaticTemplatesFromDir(parent *StaticTemplates, directory string, configurer TemplateConfigurer) (*StaticTemplates, error) {
 	files, err := ioutil.ReadDir(directory)
 	if err != nil {
 		return nil, err
@@ -133,18 +137,19 @@ func NewStaticTemplatesFromDir(directory string, configurer TemplateConfigurer) 
 		names[i] = file.Name()
 	}
 
-	return NewStaticTemplates(names, configurer, func(filename string) ([]byte, error) {
+	return NewStaticTemplates(parent, names, configurer, func(filename string) ([]byte, error) {
 		return ioutil.ReadFile(path.Join(directory, filename))
 	})
 }
 
 // Creates a new StaticTemplates object from a list of filenames, and a function to read them.
 func NewStaticTemplates(
+	parent *StaticTemplates,
 	files []string,
 	configureTemplate TemplateConfigurer,
 	getFileContent TemplateReader) (*StaticTemplates, error) {
 
-	result := &StaticTemplates{nil, configureTemplate, make(map[string]TemplateData), nil}
+	result := &StaticTemplates{parent, configureTemplate, make(map[string]TemplateData), nil}
 	return result, result.ParseBulk(files, getFileContent)
 }
 

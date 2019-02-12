@@ -58,7 +58,7 @@ func TestNewMailComposition(t *testing.T) {
 		"test_html": []byte(`{{ define "start" }}Ahoh, {{ .Darling }}{{ end }}`),
 	}
 
-	st, err := templates.NewStaticTemplatesFromMap(mytemplates, nil)
+	st, err := templates.NewStaticTemplatesFromMap(nil, mytemplates, nil)
 	assert.Nil(err)
 	assert.NotNil(st)
 

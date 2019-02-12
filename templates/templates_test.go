@@ -11,7 +11,7 @@ import (
 func TestNewStaticTemplatesEmpty(t *testing.T) {
 	assert := assert.New(t)
 
-	st, err := NewStaticTemplates([]string{}, nil, nil)
+	st, err := NewStaticTemplates(nil, []string{}, nil, nil)
 	assert.Equal(nil, err)
 	assert.Equal(0, len(st.templates))
 }
@@ -20,7 +20,7 @@ func TestNewStaticTemplatesSimple(t *testing.T) {
 	template := []byte(`this is a test template`)
 
 	assert := assert.New(t)
-	st, err := NewStaticTemplates([]string{"test.txt"}, nil, func(file string) ([]byte, error) {
+	st, err := NewStaticTemplates(nil, []string{"test.txt"}, nil, func(file string) ([]byte, error) {
 		assert.Equal(file, "test.txt")
 		return template, nil
 	})
@@ -46,7 +46,7 @@ func TestNewStaticTemplatesCombined(t *testing.T) {
 	}
 
 	assert := assert.New(t)
-	st, err := NewStaticTemplates(misc.StringKeysOrPanic(contents), nil, func(file string) ([]byte, error) {
+	st, err := NewStaticTemplates(nil, misc.StringKeysOrPanic(contents), nil, func(file string) ([]byte, error) {
 		content, ok := contents[file]
 		assert.True(ok)
 
@@ -89,11 +89,11 @@ func TestNewStaticTemplatesCombined(t *testing.T) {
 func TestNewStaticTemplatesFromDir(t *testing.T) {
 	assert := assert.New(t)
 
-	st, err := NewStaticTemplatesFromDir("non-existing-dir", nil)
+	st, err := NewStaticTemplatesFromDir(nil, "non-existing-dir", nil)
 	assert.Error(err)
 	assert.Nil(st)
 
-	st, err = NewStaticTemplatesFromDir("test", nil)
+	st, err = NewStaticTemplatesFromDir(nil, "test", nil)
 	assert.Nil(err)
 
 	assert.Equal(3, len(st.bases))
@@ -110,7 +110,7 @@ func TestNewStaticTemplatesFromMap(t *testing.T) {
 		"template2": []byte("will"),
 	}
 
-	st, err := NewStaticTemplatesFromMap(templates, nil)
+	st, err := NewStaticTemplatesFromMap(nil, templates, nil)
 	assert.Nil(err)
 	assert.NotNil(st)
 
