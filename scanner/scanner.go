@@ -36,6 +36,18 @@ func ScanTree(base string, state interface{}, pdir ProcessDir, pfile ProcessFile
 	dirs := NewScanDirStateQueue(128)
 	base = filepath.Clean(base)
 
+	if pfile == nil {
+		pfile = func(state interface{}, path string, info os.FileInfo) error { return nil }
+	}
+	if pdir == nil {
+		pdir = func(state interface{}, path string, info os.FileInfo, files []os.FileInfo) (interface{}, error) {
+			return state, nil
+		}
+	}
+	if perr == nil {
+		perr = func(state interface{}, path string, err error) {}
+	}
+
 	stats, err := os.Stat(base)
 	if err != nil {
 		perr(state, base, err)
