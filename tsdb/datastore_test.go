@@ -8,7 +8,7 @@ import (
 )
 
 func TestOptions(t *testing.T) {
-	options := DefaultDataOptions()
+	options := DefaultDataWriterOptions()
 	options.MaxEntries = 32
 
 	assert.Equal(t, int64(0), options.GetFileSize()%4096)
@@ -17,7 +17,7 @@ func TestOptions(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	options := DefaultDataOptions()
+	options := DefaultDataWriterOptions()
 	options.MaxEntries = 32
 
 	assert.Equal(t, int64(0), options.GetFileSize()%4096)
@@ -29,7 +29,7 @@ func TestStore(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "datastore-")
 	assert.Nil(t, err)
 
-	db, err := OpenData(filepath.Join(tempdir, "test"), options)
+	db, err := OpenDataWriter(filepath.Join(tempdir, "test"), options)
 	assert.Nil(t, err)
 
 	for i := uint64(0); i < 200; i++ {

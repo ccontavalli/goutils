@@ -8,23 +8,23 @@ import (
 )
 
 type SerieOptions struct {
-	DataOptions
+	DataWriterOptions
 	LabelOptions
 }
 
 func DefaultSerieOptions() SerieOptions {
-	return SerieOptions{DefaultDataOptions(), DefaultLabelOptions()}
+	return SerieOptions{DefaultDataWriterOptions(), DefaultLabelOptions()}
 }
 
 type Serie struct {
-	*DataStore
+	*DataWriter
 
 	pl *LabelStore
 	sl *LabelStore
 }
 
 func Open(dbbasepath string, options SerieOptions) (*Serie, error) {
-	ds, err := OpenData(dbbasepath, options.DataOptions)
+	ds, err := OpenDataWriter(dbbasepath, options.DataWriterOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -48,13 +48,13 @@ func (s *Serie) Append(time, value uint64, labels []string) {
 }
 
 func (s *Serie) Sync() {
-	s.DataStore.Sync()
+	s.DataWriter.Sync()
 	s.pl.Sync()
 	s.sl.Sync()
 }
 
 func (s *Serie) Close() {
-	s.DataStore.Close()
+	s.DataWriter.Close()
 	s.pl.Close()
 	s.sl.Close()
 }

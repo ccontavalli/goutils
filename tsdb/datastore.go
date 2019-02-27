@@ -10,7 +10,7 @@ import (
 	//"log"
 )
 
-type DataStore struct {
+type DataWriter struct {
 	file *os.File
 	raw  []byte
 
@@ -21,7 +21,7 @@ type DataStore struct {
 	lpe  uint8
 }
 
-type DataOptions struct {
+type DataWriterOptions struct {
 	// Unix mode to open the file as. 0666 by default.
 	Mode os.FileMode
 
@@ -32,22 +32,22 @@ type DataOptions struct {
 	MaxEntries uint32
 }
 
-func (do DataOptions) GetEntrySize() uint16 {
+func (do DataWriterOptions) GetEntrySize() uint16 {
 	return uint16(do.LabelsPerEntry)*4 + 8 + 8
 }
 
-func (do DataOptions) GetEntries() int64 {
+func (do DataWriterOptions) GetEntries() int64 {
 	return do.GetRingSize() / int64(do.GetEntrySize())
 }
-func (do DataOptions) GetRingSize() int64 {
+func (do DataWriterOptions) GetRingSize() int64 {
 	return int64(do.GetFileSize() - 8)
 }
 
-func (do DataOptions) GetFileSize() int64 {
+func (do DataWriterOptions) GetFileSize() int64 {
 	return MultipleOfPageSize(8 + int64(do.GetEntrySize())*int64(do.MaxEntries))
 }
 
-func (do DataOptions) Valid() error {
+func (do DataWriterOptions) Valid() error {
 	filesize := do.GetFileSize()
 	if filesize > math.MaxInt32 || filesize < 0 {
 		return fmt.Errorf("Number of entries or labels per entry too large - would overflow uint32")
@@ -55,11 +55,11 @@ func (do DataOptions) Valid() error {
 	return nil
 }
 
-func DefaultDataOptions() DataOptions {
-	return DataOptions{0666, 4, 604800}
+func DefaultDataWriterOptions() DataWriterOptions {
+	return DataWriterOptions{0666, 4, 604800}
 }
 
-func OpenData(dbbasepath string, options DataOptions) (*DataStore, error) {
+func OpenDataWriter(dbbasepath string, options DataWriterOptions) (*DataWriter, error) {
 	if unsafe.Sizeof(uint64(0)) != 8 {
 		return nil, fmt.Errorf("Unsupported platform - uin64 is not 8 bytes")
 	}
@@ -90,18 +90,18 @@ func OpenData(dbbasepath string, options DataOptions) (*DataStore, error) {
 	ring := data[8:]
 	esize := len(ring) / int(options.GetEntrySize())
 
-	return &DataStore{file, data, cursor, esize, ring, options.LabelsPerEntry}, nil
+	return &DataWriter{file, data, cursor, esize, ring, options.LabelsPerEntry}, nil
 }
 
-func (ds *DataStore) GetEntrySize() uint16 {
+func (ds *DataWriter) GetEntrySize() uint16 {
 	return uint16(8 + 8 + ds.lpe*4)
 }
 
-func (ds *DataStore) Sync() {
+func (ds *DataWriter) Sync() {
 	unix.Msync(ds.raw, unix.MS_SYNC | unix.MS_INVALIDATE)
 }
 
-func (ds *DataStore) Close() {
+func (ds *DataWriter) Close() {
 	ds.Sync()
 	ds.file.Close()
 }
@@ -110,15 +110,15 @@ func (ds *DataStore) Close() {
 type Result struct {
 }
 
-func (ds *DataStore) GetUntilGreater(value uint64) Result {
+func (ds *DataWriter) GetUntilGreater(value uint64) Result {
 	return Result{}
 }
 
-func (ds *DataStore) GetLastN(entries int) Result {
+func (ds *DataWriter) GetLastN(entries int) Result {
 	return Result{}
 } */
 
-func (ds *DataStore) GetOne(element int) (time, value uint64, labels []Label) {
+func (ds *DataWriter) GetOne(element int) (time, value uint64, labels []LabelID) {
 	if (element > 0 && element >= ds.esize) || (element < 0 && element <= -ds.esize) {
 		panic(fmt.Sprintf("invalid index %d, when only %d elements are reachable", element, ds.esize))
 	}
@@ -145,12 +145,12 @@ func (ds *DataStore) GetOne(element int) (time, value uint64, labels []Label) {
 		if label == 0 {
 			break
 		}
-		labels = append(labels, Label(label))
+		labels = append(labels, LabelID(label))
 	}
 	return time, value, labels
 }
 
-func (ds *DataStore) Append(time, value uint64, labels []Label) {
+func (ds *DataWriter) Append(time, value uint64, labels []LabelID) {
 	last := atomic.LoadUint64(ds.cursor)
 	if last+uint64(ds.GetEntrySize()) >= uint64(len(ds.ring)) {
 		last = 0

@@ -15,13 +15,13 @@ type LabelOptions struct {
 	Block uint32
 }
 
-type Label uint32
+type LabelID uint32
 
 type LabelStore struct {
 	file *os.File
 	raw  []byte
 
-	cache  map[string]Label
+	cache  map[string]LabelID
 	offset int // Initialized by reloadCache
 
 	blocksize uint32
@@ -72,11 +72,11 @@ func OpenLabels(dbbasepath string, options LabelOptions) (*LabelStore, error) {
 
 func (ls *LabelStore) reloadCache() error {
 	if ls.cache == nil {
-		ls.cache = make(map[string]Label)
+		ls.cache = make(map[string]LabelID)
 	}
 
 	for offset := ls.offset; offset < len(ls.raw); {
-		label := Label(offset + 1)
+		label := LabelID(offset + 1)
 		name, err := ls.LoadString(label)
 		if err != nil {
 			return err
@@ -92,7 +92,7 @@ func (ls *LabelStore) reloadCache() error {
 	return nil
 }
 
-func (ls *LabelStore) LoadString(label Label) (string, error) {
+func (ls *LabelStore) LoadString(label LabelID) (string, error) {
 	offset := int(label) - 1
 	if offset+4 >= len(ls.raw) {
 		return "", fmt.Errorf("Label points outside the file - invalid")
@@ -135,11 +135,11 @@ func (ls *LabelStore) resizeFile(extrasize int) error {
 	return nil
 }
 
-func (ls *LabelStore) GetLabel(name string) (Label, error) {
+func (ls *LabelStore) GetLabel(name string) (LabelID, error) {
 	if ls.cache == nil {
 		err := ls.reloadCache()
 		if err != nil {
-			return Label(0), err
+			return LabelID(0), err
 		}
 	}
 
@@ -151,11 +151,11 @@ func (ls *LabelStore) GetLabel(name string) (Label, error) {
 	if len(name)+int(ls.offset)+4 >= len(ls.raw) {
 		err := ls.resizeFile(len(name))
 		if err != nil {
-			return Label(0), err
+			return LabelID(0), err
 		}
 	}
 
-	label = Label(ls.offset + 1)
+	label = LabelID(ls.offset + 1)
 	copy(ls.raw[ls.offset+4:], []byte(name))
 	atomic.StoreUint32((*uint32)(unsafe.Pointer(&ls.raw[ls.offset])), uint32(len(name)))
 	ls.offset += (4 + len(name) + 7) / 8 * 8
