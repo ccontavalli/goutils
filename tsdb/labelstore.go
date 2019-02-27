@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"unsafe"
+	"golang.org/x/sys/unix"
 )
 
 type LabelOptions struct {
@@ -75,7 +76,8 @@ func (ls *LabelStore) reloadCache() error {
 	}
 
 	for offset := ls.offset; offset < len(ls.raw); {
-		name, err := ls.LoadString(Label(offset))
+		label := Label(offset + 1)
+		name, err := ls.LoadString(label)
 		if err != nil {
 			return err
 		}
@@ -83,7 +85,7 @@ func (ls *LabelStore) reloadCache() error {
 			ls.offset = offset
 			break
 		}
-		ls.cache[name] = Label(offset)
+		ls.cache[name] = label
 		offset += (4 + len(name) + 7) / 8 * 8
 	}
 
@@ -91,7 +93,7 @@ func (ls *LabelStore) reloadCache() error {
 }
 
 func (ls *LabelStore) LoadString(label Label) (string, error) {
-	offset := int(label)
+	offset := int(label) - 1
 	if offset+4 >= len(ls.raw) {
 		return "", fmt.Errorf("Label points outside the file - invalid")
 	}
@@ -106,6 +108,15 @@ func (ls *LabelStore) LoadString(label Label) (string, error) {
 		return "", fmt.Errorf("Label too long ends after the file - invalid")
 	}
 	return string(ls.raw[offset+4 : offset+4+int(strsize)]), nil
+}
+
+func (ds *LabelStore) Sync() {
+	unix.Msync(ds.raw, unix.MS_SYNC | unix.MS_INVALIDATE)
+}
+
+func (ds *LabelStore) Close() {
+	ds.Sync()
+	ds.file.Close()
 }
 
 func (ls *LabelStore) resizeFile(extrasize int) error {
@@ -144,7 +155,7 @@ func (ls *LabelStore) GetLabel(name string) (Label, error) {
 		}
 	}
 
-	label = Label(ls.offset)
+	label = Label(ls.offset + 1)
 	copy(ls.raw[ls.offset+4:], []byte(name))
 	atomic.StoreUint32((*uint32)(unsafe.Pointer(&ls.raw[ls.offset])), uint32(len(name)))
 	ls.offset += (4 + len(name) + 7) / 8 * 8

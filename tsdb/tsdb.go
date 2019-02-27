@@ -2,45 +2,59 @@ package tsdb
 
 import (
 	//"time"
-	"fmt"
-	"os"
-	"syscall"
+	//"fmt"
+	//"os"
+	//"syscall"
 )
 
+type SerieOptions struct {
+	DataOptions
+	LabelOptions
+}
+
+func DefaultSerieOptions() SerieOptions {
+	return SerieOptions{DefaultDataOptions(), DefaultLabelOptions()}
+}
+
 type Serie struct {
-	CollectLabels float32
-
 	*DataStore
-	*LabelStore
+
+	pl *LabelStore
+	sl *LabelStore
 }
 
-func mmapFile(f *os.File) ([]byte, error) {
-	st, err := f.Stat()
+func Open(dbbasepath string, options SerieOptions) (*Serie, error) {
+	ds, err := OpenData(dbbasepath, options.DataOptions)
 	if err != nil {
-		return []byte{}, err
-	}
-	size := st.Size()
-	if int64(int(size)) != size {
-		return []byte{}, fmt.Errorf("size of %d overflows int", size)
-	}
-	data, err := syscall.Mmap(int(f.Fd()), 0, int(size), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
-	if err != nil {
-		return []byte{}, err
+		return nil, err
 	}
 
-	err = syscall.Mlock(data)
-	return data[:size], err
+	pl, err := OpenLabels(dbbasepath + "-pl", options.LabelOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	sl, err := OpenLabels(dbbasepath + "-sl", options.LabelOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Serie{ds, pl, sl}, nil
 }
 
-func Open() (*Serie, error) {
-	return nil, nil
+func (s *Serie) Append(time, value uint64, labels []string) {
+	for _, l := range labels {
+	}
 }
 
 func (s *Serie) Sync() {
+	s.DataStore.Sync()
+	s.pl.Sync()
+	s.sl.Sync()
 }
 
 func (s *Serie) Close() {
-}
-
-func (s *Serie) Clean() {
+	s.DataStore.Close()
+	s.pl.Close()
+	s.sl.Close()
 }
