@@ -32,31 +32,34 @@ func TestStore(t *testing.T) {
 	db, err := OpenDataWriter(filepath.Join(tempdir, "test"), options)
 	assert.Nil(t, err)
 
-	for i := uint64(0); i < 200; i++ {
-		db.Append(i, i+1024, nil)
+	// There are 127 slots in the ring. Up to then, we should be
+	// able to fill them up with no issue.
+	for i := uint64(0); i < 127; i++ {
+		result, last := db.Append(i, i+1024, nil)
+		assert.True(t, result)
+		assert.Equal(t, (i + 1) * 32, last)
 
 		// Read the value we just inserted.
 		time, value, labels := db.GetOne(-1)
 		assert.Equal(t, i, time)
 		assert.Equal(t, i+1024, value)
 		assert.Equal(t, 0, len(labels))
-
-		// Before now, the ring was not full.
-		if i > 127 {
-			time, value, labels := db.GetOne(0)
-			assert.Equal(t, i-125, time)
-			assert.Equal(t, i+1024-125, value)
-			assert.Equal(t, 0, len(labels))
-
-			time, value, labels = db.GetOne(1)
-			assert.Equal(t, i-124, time)
-			assert.Equal(t, i+1024-124, value)
-			assert.Equal(t, 0, len(labels))
-
-			time, value, labels = db.GetOne(2)
-			assert.Equal(t, i-123, time)
-			assert.Equal(t, i+1024-123, value)
-			assert.Equal(t, 0, len(labels))
-		}
 	}
+
+	// Read back all 127 values in right order.
+	for i := int(0); i < 127; i++ {
+		time, value, labels := db.GetOne(i)
+		assert.Equal(t, uint64(i), time)
+		assert.Equal(t, uint64(i+1024), value)
+		assert.Equal(t, 0, len(labels))
+	}
+
+	// Read back all 127 values in reverse order.
+	for i := int(-127); i < 0; i++ {
+		time, value, labels := db.GetOne(i)
+		assert.Equal(t, uint64(127+i), time)
+		assert.Equal(t, uint64(127+i+1024), value)
+		assert.Equal(t, 0, len(labels))
+	}
+
 }

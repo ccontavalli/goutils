@@ -12,7 +12,7 @@ import (
 
 type LabelOptions struct {
 	Mode  os.FileMode
-	Block uint32
+	LabelBlock uint32
 }
 
 type LabelID uint32
@@ -32,8 +32,14 @@ func DefaultLabelOptions() LabelOptions {
 }
 
 func (lo LabelOptions) Valid() error {
-	if lo.Block >= math.MaxInt32 {
-		return fmt.Errorf("Block size is too large - would overflow int32")
+	if lo.LabelBlock >= math.MaxInt32 {
+		return fmt.Errorf("LabelBlock size is too large - would overflow int32")
+	}
+	// In reality, we round to the page size, so any size >= 1 is good enough.
+	// Minimum size to store a label is probably 5 bytes (4 uint32, and 1 byte of string),
+	// 128 seems like a safe bet.
+	if lo.LabelBlock < 128 {
+		return fmt.Errorf("LabelBlock size is too small - needs to be >= 128")
 	}
 	return nil
 }
@@ -43,20 +49,19 @@ func MultipleOfPageSize(value int64) int64 {
 	return (value + ps - 1) / ps * ps
 }
 
-func OpenLabels(dbbasepath string, options LabelOptions) (*LabelStore, error) {
+func OpenLabels(fullpath string, options LabelOptions) (*LabelStore, error) {
 	err := options.Valid()
 	if err != nil {
 		return nil, err
 	}
 
-	fullpath := dbbasepath + ".labels"
 	file, err := os.OpenFile(fullpath, os.O_RDWR, options.Mode)
 	if err != nil {
 		file, err = os.Create(fullpath)
 		if err != nil {
 			return nil, err
 		}
-		err = file.Truncate(MultipleOfPageSize(int64(options.Block)))
+		err = file.Truncate(MultipleOfPageSize(int64(options.LabelBlock)))
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +72,7 @@ func OpenLabels(dbbasepath string, options LabelOptions) (*LabelStore, error) {
 		return nil, err
 	}
 
-	return &LabelStore{file, data, nil, 0, options.Block}, nil
+	return &LabelStore{file, data, nil, 0, options.LabelBlock}, nil
 }
 
 func (ls *LabelStore) reloadCache() error {
@@ -114,6 +119,11 @@ func (ds *LabelStore) Sync() {
 	unix.Msync(ds.raw, unix.MS_SYNC | unix.MS_INVALIDATE)
 }
 
+func (ds *LabelStore) Seal() {
+	// TODO: trim size of file!
+	ds.Close()
+}
+
 func (ds *LabelStore) Close() {
 	ds.Sync()
 	ds.file.Close()
@@ -135,7 +145,9 @@ func (ls *LabelStore) resizeFile(extrasize int) error {
 	return nil
 }
 
-func (ls *LabelStore) GetLabel(name string) (LabelID, error) {
+// Creates a new label in the database, and returns its LabelID if successful.
+// If the label already exists, the existing id is returned.
+func (ls *LabelStore) CreateLabel(name string) (LabelID, error) {
 	if ls.cache == nil {
 		err := ls.reloadCache()
 		if err != nil {
