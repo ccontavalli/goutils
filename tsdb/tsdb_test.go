@@ -1,13 +1,13 @@
 package tsdb
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
-	"path/filepath"
-	"testing"
 	"os"
+	"path/filepath"
 	"syscall"
-	"fmt"
+	"testing"
 	// "fmt"
 )
 
@@ -48,14 +48,14 @@ func TestSerieBasics(t *testing.T) {
 			fmt.Sprintf("foo.4"),
 			fmt.Sprintf("foo-%d.5", i),
 		}
-		err := s.Append(i, i + 1024, labels)
+		err := s.Append(i, i+1024, labels)
 		assert.Nil(t, err)
 	}
 	s.Close()
 	files1, err := filepath.Glob(filepath.Join(tempdir, "test") + "*")
 	assert.Nil(t, err)
 
-	basepath :=filepath.Join(tempdir, "test")
+	basepath := filepath.Join(tempdir, "test")
 	lastfile := GetLastFile(basepath)
 	assert.NotEqual(t, "", lastfile)
 	id := ParseFileName(basepath, lastfile)
@@ -75,12 +75,12 @@ func TestSerieBasics(t *testing.T) {
 			fmt.Sprintf("foo.4"),
 			fmt.Sprintf("foo-%d.5", i),
 		}
-		err := s.Append(i, i + 1024, labels)
+		err := s.Append(i, i+1024, labels)
 		assert.Nil(t, err)
 	}
 	s.Close()
 
 	files2, err := filepath.Glob(filepath.Join(tempdir, "test") + "*")
-	assert.Equal(t, 2 * len(files1), len(files2))
+	assert.Equal(t, 2*len(files1), len(files2))
 	assert.Nil(t, err)
 }

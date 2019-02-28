@@ -37,7 +37,7 @@ func TestStore(t *testing.T) {
 	for i := uint64(0); i < 127; i++ {
 		result, last := db.Append(i, i+1024, nil)
 		assert.True(t, result)
-		assert.Equal(t, (i + 1) * 32, last)
+		assert.Equal(t, (i+1)*32, last)
 
 		// Read the value we just inserted.
 		time, value, labels := db.GetOne(-1)

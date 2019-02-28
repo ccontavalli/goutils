@@ -2,13 +2,13 @@ package tsdb
 
 import (
 	"fmt"
+	"golang.org/x/sys/unix"
+	"io/ioutil"
 	"math"
 	"os"
+	"path/filepath"
 	"sync/atomic"
 	"unsafe"
-	"golang.org/x/sys/unix"
-	"path/filepath"
-	"io/ioutil"
 	//"log"
 )
 
@@ -155,7 +155,7 @@ func (ds *DataWriter) GetEntrySize() uint16 {
 }
 
 func (ds *DataWriter) Sync() {
-	unix.Msync(ds.raw, unix.MS_SYNC | unix.MS_INVALIDATE)
+	unix.Msync(ds.raw, unix.MS_SYNC|unix.MS_INVALIDATE)
 }
 
 func (ds *DataWriter) Close() {
@@ -164,7 +164,7 @@ func (ds *DataWriter) Close() {
 }
 
 func (ds *DataWriter) GetOne(element int) (time, value uint64, labels []LabelID) {
-	if (element > 0 && element >= ds.esize) || (element < 0 && element + 1 <= -ds.esize) {
+	if (element > 0 && element >= ds.esize) || (element < 0 && element+1 <= -ds.esize) {
 		panic(fmt.Sprintf("invalid index %d, when only %d elements are reachable", element, ds.esize))
 	}
 
@@ -192,7 +192,7 @@ func (ds *DataWriter) Seal() {
 	appended, last := ds.Append(0xffffffffffffffff, 0xffffffffffffffff, nil)
 	if appended {
 		newsize := MultipleOfPageSize(GetHeaderSize() + int64(last))
-		atomic.StoreUint64(ds.cursor, uint64(newsize - GetHeaderSize()))
+		atomic.StoreUint64(ds.cursor, uint64(newsize-GetHeaderSize()))
 		ds.file.Truncate(newsize)
 	}
 	ds.Sync()
@@ -208,25 +208,25 @@ func (ds *DataWriter) Peek() bool {
 }
 
 func (ds *DataWriter) Append(time, value uint64, labels []LabelID) (bool, uint64) {
-		last := atomic.LoadUint64(ds.cursor)
-		if last+uint64(ds.GetEntrySize()) >= uint64(len(ds.ring)) {
-			return false, last
-		}
+	last := atomic.LoadUint64(ds.cursor)
+	if last+uint64(ds.GetEntrySize()) >= uint64(len(ds.ring)) {
+		return false, last
+	}
 
-		*(*uint64)(unsafe.Pointer(&ds.ring[last])) = time
-		last += 8
-		*(*uint64)(unsafe.Pointer(&ds.ring[last])) = value
-		last += 8
+	*(*uint64)(unsafe.Pointer(&ds.ring[last])) = time
+	last += 8
+	*(*uint64)(unsafe.Pointer(&ds.ring[last])) = value
+	last += 8
 
-		i := 0
-		for ; i < len(labels) && i < int(ds.lpe); i++ {
-			*(*uint32)(unsafe.Pointer(&ds.ring[last])) = uint32(labels[i])
-			last += 4
-		}
-		for ; i < int(ds.lpe); i++ {
-			*(*uint32)(unsafe.Pointer(&ds.ring[last])) = 0
-			last += 4
-		}
-		atomic.StoreUint64(ds.cursor, last)
-		return true, last
+	i := 0
+	for ; i < len(labels) && i < int(ds.lpe); i++ {
+		*(*uint32)(unsafe.Pointer(&ds.ring[last])) = uint32(labels[i])
+		last += 4
+	}
+	for ; i < int(ds.lpe); i++ {
+		*(*uint32)(unsafe.Pointer(&ds.ring[last])) = 0
+		last += 4
+	}
+	atomic.StoreUint64(ds.cursor, last)
+	return true, last
 }

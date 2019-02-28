@@ -24,5 +24,3 @@ func mmapFile(f *os.File) ([]byte, error) {
 	err = syscall.Mlock(data)
 	return data[:size], err
 }
-
-

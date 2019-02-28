@@ -2,16 +2,16 @@ package tsdb
 
 import (
 	"fmt"
+	"golang.org/x/sys/unix"
 	"math"
 	"os"
 	"sync/atomic"
 	"syscall"
 	"unsafe"
-	"golang.org/x/sys/unix"
 )
 
 type LabelOptions struct {
-	Mode  os.FileMode
+	Mode       os.FileMode
 	LabelBlock uint32
 }
 
@@ -116,7 +116,7 @@ func (ls *LabelStore) LoadString(label LabelID) (string, error) {
 }
 
 func (ds *LabelStore) Sync() {
-	unix.Msync(ds.raw, unix.MS_SYNC | unix.MS_INVALIDATE)
+	unix.Msync(ds.raw, unix.MS_SYNC|unix.MS_INVALIDATE)
 }
 
 func (ds *LabelStore) Seal() {

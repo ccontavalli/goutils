@@ -1,11 +1,11 @@
 package tsdb
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
-	"fmt"
 )
 
 func TestBasics(t *testing.T) {

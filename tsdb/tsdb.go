@@ -3,11 +3,11 @@ package tsdb
 import (
 	//"time"
 	"fmt"
-	"strings"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
-	"path/filepath"
-	"os"
+	"strings"
 	//"os"
 	//"syscall"
 )
@@ -16,7 +16,7 @@ func ParseFileName(dbbasepath, fullname string) uint32 {
 	if fullname == "" {
 		return uint32(0)
 	}
-	stringid := strings.TrimPrefix(fullname, dbbasepath + "-")
+	stringid := strings.TrimPrefix(fullname, dbbasepath+"-")
 	stringid = strings.TrimSuffix(stringid, ".data")
 	stringid = strings.TrimSuffix(stringid, ".labels")
 	id, err := strconv.ParseUint(stringid, 16, 32)
@@ -26,13 +26,12 @@ func ParseFileName(dbbasepath, fullname string) uint32 {
 	return uint32(id)
 }
 
-
 func GetLastFile(dbbasepath string) string {
 	pattern := dbbasepath + "-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]" + ".data"
 	matches, _ := filepath.Glob(pattern)
 	sort.Strings(matches)
 	if len(matches) > 0 {
-		return matches[len(matches) - 1]
+		return matches[len(matches)-1]
 	}
 	return ""
 }
@@ -48,7 +47,6 @@ func GetFileId(dbbasepath string) uint32 {
 	return id
 }
 
-
 func MakeFileName(dbbasepath string, number uint32, extension string) string {
 	return fmt.Sprintf("%s-%08x.%s", dbbasepath, number, extension)
 }
@@ -63,7 +61,7 @@ func MakeLabelStoreFileName(dbbasepath string, number uint32) string {
 
 type Serie struct {
 	Path string
-	Id uint32
+	Id   uint32
 
 	DataWriterOptions
 	LabelOptions
