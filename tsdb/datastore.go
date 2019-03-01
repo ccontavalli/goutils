@@ -20,7 +20,7 @@ type DataWriter struct {
 	esize  int
 
 	ring []byte
-	lpe  uint8
+	lpe  int
 }
 
 type DataWriterOptions struct {
@@ -28,35 +28,43 @@ type DataWriterOptions struct {
 	Mode os.FileMode
 
 	// Number of different labels to keep associated with each time entry. 4 by default.
-	LabelsPerEntry uint8
+	// Cannot exceed 256.
+	LabelsPerEntry int
 	// Maximum numbers of entries to store in the time database.
 	// Note that this is rounded to fill a multiple of the page size.
-	MaxEntries uint32
+	MaxEntries int
 }
 
-func (do DataWriterOptions) GetEntrySize() uint16 {
-	return uint16(do.LabelsPerEntry)*4 + 8 + 8
+func (do DataWriterOptions) GetEntrySize() int {
+	return do.LabelsPerEntry*4 + 8 + 8
 }
 
-func GetHeaderSize() int64 {
+func GetHeaderSize() int {
 	return 16
 }
 
-func (do DataWriterOptions) GetEntries() int64 {
-	return do.GetRingSize() / int64(do.GetEntrySize())
+func (do DataWriterOptions) GetEntries() int {
+	return do.GetRingSize() / do.GetEntrySize()
 }
-func (do DataWriterOptions) GetRingSize() int64 {
-	return int64(do.GetFileSize() - GetHeaderSize())
+func (do DataWriterOptions) GetRingSize() int {
+	return do.GetFileSize() - GetHeaderSize()
 }
 
-func (do DataWriterOptions) GetFileSize() int64 {
-	return MultipleOfPageSize(GetHeaderSize() + int64(do.GetEntrySize())*int64(do.MaxEntries))
+func (do DataWriterOptions) GetFileSize() int {
+	return int(MultipleOfPageSize(GetHeaderSize() + do.GetEntrySize()*do.MaxEntries))
 }
 
 func (do DataWriterOptions) Valid() error {
+	if unsafe.Sizeof(uint64(0)) != 8 {
+		return fmt.Errorf("Unsupported platform - uin64 is not 8 bytes")
+	}
+	if do.LabelsPerEntry < 0 || do.LabelsPerEntry > 256 {
+		return fmt.Errorf("LabelsPerEntry too large, must be <= 256")
+	}
+
 	filesize := do.GetFileSize()
 	if filesize > math.MaxInt32 || filesize < 0 {
-		return fmt.Errorf("Number of entries or labels per entry too large - would overflow uint32")
+		return fmt.Errorf("Number of entries or labels per entry too large - would overflow int32")
 	}
 	return nil
 }
@@ -79,9 +87,6 @@ func DefaultDataWriterOptions() DataWriterOptions {
 //
 // Note that the entire file size is rounded to PAGE_SIZE.
 func OpenDataWriter(dbasefile string, options DataWriterOptions) (*DataWriter, error) {
-	if unsafe.Sizeof(uint64(0)) != 8 {
-		return nil, fmt.Errorf("Unsupported platform - uin64 is not 8 bytes")
-	}
 	err := options.Valid()
 	if err != nil {
 		return nil, err
@@ -111,7 +116,7 @@ func OpenDataWriter(dbasefile string, options DataWriterOptions) (*DataWriter, e
 			return nil, err
 		}
 
-		err = file.Truncate(options.GetFileSize())
+		err = file.Truncate(int64(options.GetFileSize()))
 		if err != nil {
 			os.Remove(file.Name())
 			file.Close()
@@ -125,7 +130,7 @@ func OpenDataWriter(dbasefile string, options DataWriterOptions) (*DataWriter, e
 			return nil, err
 		}
 		*(*uint64)(unsafe.Pointer(&data[0])) = uint64(0)
-		*(*uint8)(unsafe.Pointer(&data[8])) = options.LabelsPerEntry
+		*(*uint8)(unsafe.Pointer(&data[8])) = uint8(options.LabelsPerEntry)
 
 		// err = unix.RenameAt2(unix.AT_FDCWD, file.Name(), unix.AT_FDCWD, fullpath, unix.RENAME_NOREPLACE)
 		err = unix.Rename(file.Name(), dbasefile)
@@ -143,7 +148,7 @@ func OpenDataWriter(dbasefile string, options DataWriterOptions) (*DataWriter, e
 	}
 
 	cursor := (*uint64)(unsafe.Pointer(&data[0]))
-	lpe := *(*uint8)(unsafe.Pointer(&data[8]))
+	lpe := int(*(*uint8)(unsafe.Pointer(&data[8])))
 	ring := data[16:]
 	esize := len(ring) / int(options.GetEntrySize())
 
@@ -163,7 +168,17 @@ func (ds *DataWriter) Close() {
 	ds.file.Close()
 }
 
-func (ds *DataWriter) GetOne(element int) (time, value uint64, labels []LabelID) {
+type Offset int
+
+func (ds *DataWriter) GetEntries() int {
+	last := atomic.LoadUint64(ds.cursor)
+	if last >= uint64(len(ds.ring)) {
+		return ds.esize
+	}
+	return int(last) / int(ds.GetEntrySize())
+}
+
+func (ds *DataWriter) GetOffset(element int) Offset {
 	if (element > 0 && element >= ds.esize) || (element < 0 && element+1 <= -ds.esize) {
 		panic(fmt.Sprintf("invalid index %d, when only %d elements are reachable", element, ds.esize))
 	}
@@ -175,25 +190,46 @@ func (ds *DataWriter) GetOne(element int) (time, value uint64, labels []LabelID)
 	} else {
 		element *= entry
 	}
+	return Offset(element)
+}
 
-	time = *(*uint64)(unsafe.Pointer(&ds.ring[element]))
-	value = *(*uint64)(unsafe.Pointer(&ds.ring[element+8]))
-	for i := 0; i < int(ds.lpe); i++ {
-		label := *(*uint32)(unsafe.Pointer(&ds.ring[int(element)+16+i*4]))
+func (ds *DataWriter) GetTime(offset Offset) uint64 {
+	return *(*uint64)(unsafe.Pointer(&ds.ring[offset]))
+}
+func (ds *DataWriter) GetValue(offset Offset) uint64 {
+	return *(*uint64)(unsafe.Pointer(&ds.ring[offset+8]))
+}
+
+func (ds *DataWriter) GetLabels(offset Offset, labels []LabelID) []LabelID {
+	if labels == nil {
+		labels = make([]LabelID, 0, ds.lpe)
+	}
+	for i := 0; i < ds.lpe; i++ {
+		label := *(*uint32)(unsafe.Pointer(&ds.ring[int(offset)+16+i*4]))
 		if label == 0 {
 			break
 		}
 		labels = append(labels, LabelID(label))
 	}
+	return labels
+}
+
+func (ds *DataWriter) GetOne(element int) (time, value uint64, labels []LabelID) {
+	offset := ds.GetOffset(element)
+	time = ds.GetTime(offset)
+	value = ds.GetValue(offset)
+
+	labels = ds.GetLabels(offset, nil)
+
 	return time, value, labels
 }
 
 func (ds *DataWriter) Seal() {
 	appended, last := ds.Append(0xffffffffffffffff, 0xffffffffffffffff, nil)
 	if appended {
-		newsize := MultipleOfPageSize(GetHeaderSize() + int64(last))
+		newsize := MultipleOfPageSize(GetHeaderSize() + int(last))
 		atomic.StoreUint64(ds.cursor, uint64(newsize-GetHeaderSize()))
-		ds.file.Truncate(newsize)
+		ds.file.Truncate(int64(newsize))
 	}
 	ds.Sync()
 	ds.Close()
@@ -219,11 +255,11 @@ func (ds *DataWriter) Append(time, value uint64, labels []LabelID) (bool, uint64
 	last += 8
 
 	i := 0
-	for ; i < len(labels) && i < int(ds.lpe); i++ {
+	for ; i < len(labels) && i < ds.lpe; i++ {
 		*(*uint32)(unsafe.Pointer(&ds.ring[last])) = uint32(labels[i])
 		last += 4
 	}
-	for ; i < int(ds.lpe); i++ {
+	for ; i < ds.lpe; i++ {
 		*(*uint32)(unsafe.Pointer(&ds.ring[last])) = 0
 		last += 4
 	}

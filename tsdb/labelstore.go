@@ -12,7 +12,7 @@ import (
 
 type LabelOptions struct {
 	Mode       os.FileMode
-	LabelBlock uint32
+	LabelBlock int
 }
 
 type LabelID uint32
@@ -24,7 +24,7 @@ type LabelStore struct {
 	cache  map[string]LabelID
 	offset int // Initialized by reloadCache
 
-	blocksize uint32
+	blocksize int
 }
 
 func DefaultLabelOptions() LabelOptions {
@@ -44,11 +44,6 @@ func (lo LabelOptions) Valid() error {
 	return nil
 }
 
-func MultipleOfPageSize(value int64) int64 {
-	ps := int64(os.Getpagesize())
-	return (value + ps - 1) / ps * ps
-}
-
 func OpenLabels(fullpath string, options LabelOptions) (*LabelStore, error) {
 	err := options.Valid()
 	if err != nil {
@@ -61,7 +56,7 @@ func OpenLabels(fullpath string, options LabelOptions) (*LabelStore, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = file.Truncate(MultipleOfPageSize(int64(options.LabelBlock)))
+		err = file.Truncate(int64(MultipleOfPageSize(options.LabelBlock)))
 		if err != nil {
 			return nil, err
 		}
@@ -130,11 +125,11 @@ func (ds *LabelStore) Close() {
 }
 
 func (ls *LabelStore) resizeFile(extrasize int) error {
-	newsize := (len(ls.raw) + int(extrasize) + int(ls.blocksize) - 1) / int(ls.blocksize) * int(ls.blocksize)
+	newsize := (len(ls.raw) + extrasize + ls.blocksize - 1) / ls.blocksize * ls.blocksize
 	if newsize <= len(ls.raw) {
 		return fmt.Errorf("Cannot increase file size - would overflow")
 	}
-	ls.file.Truncate(MultipleOfPageSize(int64(newsize)))
+	ls.file.Truncate(int64(MultipleOfPageSize(newsize)))
 
 	newraw, err := mmapFile(ls.file)
 	if err != nil {

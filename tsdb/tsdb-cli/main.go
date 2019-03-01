@@ -32,7 +32,7 @@ func AddValue() {
 		log.Fatalf("Must specify --serie, to indicate where to store the data")
 	}
 
-	s := tsdb.NewSerie(*fl_serie)
+	s := tsdb.NewSerieWriter(*fl_serie)
 	if *fl_labelblock > 0 {
 		s.LabelBlock = uint32(*fl_labelblock)
 	}

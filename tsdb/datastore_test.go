@@ -11,8 +11,8 @@ func TestOptions(t *testing.T) {
 	options := DefaultDataWriterOptions()
 	options.MaxEntries = 32
 
-	assert.Equal(t, int64(0), options.GetFileSize()%4096)
-	assert.Greater(t, options.GetFileSize(), int64(0))
+	assert.Equal(t, 0, options.GetFileSize()%4096)
+	assert.Greater(t, options.GetFileSize(), 0)
 	assert.Nil(t, options.Valid())
 }
 
@@ -20,10 +20,10 @@ func TestStore(t *testing.T) {
 	options := DefaultDataWriterOptions()
 	options.MaxEntries = 32
 
-	assert.Equal(t, int64(0), options.GetFileSize()%4096)
-	assert.Equal(t, uint16(32), options.GetEntrySize())
-	assert.Equal(t, int64(127), options.GetEntries())
-	assert.Greater(t, options.GetFileSize(), int64(0))
+	assert.Equal(t, 0, options.GetFileSize()%4096)
+	assert.Equal(t, 32, options.GetEntrySize())
+	assert.Equal(t, 127, options.GetEntries())
+	assert.Greater(t, options.GetFileSize(), 0)
 	assert.Nil(t, options.Valid())
 
 	tempdir, err := ioutil.TempDir("", "datastore-")
@@ -44,6 +44,9 @@ func TestStore(t *testing.T) {
 		assert.Equal(t, i, time)
 		assert.Equal(t, i+1024, value)
 		assert.Equal(t, 0, len(labels))
+
+		entries := db.GetEntries()
+		assert.Equal(t, int(i+1), entries)
 	}
 
 	// Read back all 127 values in right order.

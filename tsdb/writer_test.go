@@ -15,7 +15,7 @@ func TestInvalidPath(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "serie-invalid-")
 	assert.Nil(t, err)
 
-	s := NewSerie(filepath.Join(tempdir, "invalid-directory", "more", "test"))
+	s := NewSerieWriter(filepath.Join(tempdir, "invalid-directory", "more", "test"))
 	s.MaxEntries = 32
 	s.LabelBlock = 128
 
@@ -27,12 +27,12 @@ func TestInvalidPath(t *testing.T) {
 	assert.Equal(t, syscall.Errno(0x2), c.Err)
 }
 
-func TestSerieBasics(t *testing.T) {
+func TestSerieWriterBasics(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "serie-")
 	assert.Nil(t, err)
 
 	// Open the time series.
-	s := NewSerie(filepath.Join(tempdir, "test"))
+	s := NewSerieWriter(filepath.Join(tempdir, "test"))
 	s.MaxEntries = 32
 	s.LabelBlock = 128
 	err = s.Open()
