@@ -12,7 +12,7 @@ import (
 	//"log"
 )
 
-type DataWriter struct {
+type DataStore struct {
 	file *os.File
 	raw  []byte
 
@@ -23,7 +23,7 @@ type DataWriter struct {
 	lpe  int
 }
 
-type DataWriterOptions struct {
+type DataStoreOptions struct {
 	// Unix mode to open the file as. 0666 by default.
 	Mode os.FileMode
 
@@ -35,7 +35,7 @@ type DataWriterOptions struct {
 	MaxEntries int
 }
 
-func (do DataWriterOptions) GetEntrySize() int {
+func (do DataStoreOptions) GetEntrySize() int {
 	return do.LabelsPerEntry*4 + 8 + 8
 }
 
@@ -43,18 +43,18 @@ func GetHeaderSize() int {
 	return 16
 }
 
-func (do DataWriterOptions) GetEntries() int {
+func (do DataStoreOptions) GetEntries() int {
 	return do.GetRingSize() / do.GetEntrySize()
 }
-func (do DataWriterOptions) GetRingSize() int {
+func (do DataStoreOptions) GetRingSize() int {
 	return do.GetFileSize() - GetHeaderSize()
 }
 
-func (do DataWriterOptions) GetFileSize() int {
+func (do DataStoreOptions) GetFileSize() int {
 	return int(MultipleOfPageSize(GetHeaderSize() + do.GetEntrySize()*do.MaxEntries))
 }
 
-func (do DataWriterOptions) Valid() error {
+func (do DataStoreOptions) Valid() error {
 	if unsafe.Sizeof(uint64(0)) != 8 {
 		return fmt.Errorf("Unsupported platform - uin64 is not 8 bytes")
 	}
@@ -69,8 +69,8 @@ func (do DataWriterOptions) Valid() error {
 	return nil
 }
 
-func DefaultDataWriterOptions() DataWriterOptions {
-	return DataWriterOptions{0666, 4, 604800}
+func DefaultDataStoreOptions() DataStoreOptions {
+	return DataStoreOptions{0666, 4, 604800}
 }
 
 // Format of a .data file:
@@ -86,7 +86,7 @@ func DefaultDataWriterOptions() DataWriterOptions {
 //               Unused labels are set to 0
 //
 // Note that the entire file size is rounded to PAGE_SIZE.
-func OpenDataWriter(dbasefile string, options DataWriterOptions) (*DataWriter, error) {
+func OpenDataStore(dbasefile string, options DataStoreOptions) (*DataStore, error) {
 	err := options.Valid()
 	if err != nil {
 		return nil, err
@@ -152,25 +152,25 @@ func OpenDataWriter(dbasefile string, options DataWriterOptions) (*DataWriter, e
 	ring := data[16:]
 	esize := len(ring) / int(options.GetEntrySize())
 
-	return &DataWriter{file, data, cursor, esize, ring, lpe}, nil
+	return &DataStore{file, data, cursor, esize, ring, lpe}, nil
 }
 
-func (ds *DataWriter) GetEntrySize() uint16 {
+func (ds *DataStore) GetEntrySize() uint16 {
 	return uint16(8 + 8 + ds.lpe*4)
 }
 
-func (ds *DataWriter) Sync() {
+func (ds *DataStore) Sync() {
 	unix.Msync(ds.raw, unix.MS_SYNC|unix.MS_INVALIDATE)
 }
 
-func (ds *DataWriter) Close() {
+func (ds *DataStore) Close() {
 	ds.Sync()
 	ds.file.Close()
 }
 
 type Offset int
 
-func (ds *DataWriter) GetEntries() int {
+func (ds *DataStore) GetEntries() int {
 	last := atomic.LoadUint64(ds.cursor)
 	if last >= uint64(len(ds.ring)) {
 		return ds.esize
@@ -178,7 +178,7 @@ func (ds *DataWriter) GetEntries() int {
 	return int(last) / int(ds.GetEntrySize())
 }
 
-func (ds *DataWriter) GetOffset(element int) Offset {
+func (ds *DataStore) GetOffset(element int) Offset {
 	if (element > 0 && element >= ds.esize) || (element < 0 && element+1 <= -ds.esize) {
 		panic(fmt.Sprintf("invalid index %d, when only %d elements are reachable", element, ds.esize))
 	}
@@ -193,14 +193,14 @@ func (ds *DataWriter) GetOffset(element int) Offset {
 	return Offset(element)
 }
 
-func (ds *DataWriter) GetTime(offset Offset) uint64 {
+func (ds *DataStore) GetTime(offset Offset) uint64 {
 	return *(*uint64)(unsafe.Pointer(&ds.ring[offset]))
 }
-func (ds *DataWriter) GetValue(offset Offset) uint64 {
+func (ds *DataStore) GetValue(offset Offset) uint64 {
 	return *(*uint64)(unsafe.Pointer(&ds.ring[offset+8]))
 }
 
-func (ds *DataWriter) GetLabels(offset Offset, labels []LabelID) []LabelID {
+func (ds *DataStore) GetLabels(offset Offset, labels []LabelID) []LabelID {
 	if labels == nil {
 		labels = make([]LabelID, 0, ds.lpe)
 	}
@@ -214,7 +214,7 @@ func (ds *DataWriter) GetLabels(offset Offset, labels []LabelID) []LabelID {
 	return labels
 }
 
-func (ds *DataWriter) GetOne(element int) (time, value uint64, labels []LabelID) {
+func (ds *DataStore) GetOne(element int) (time, value uint64, labels []LabelID) {
 	offset := ds.GetOffset(element)
 	time = ds.GetTime(offset)
 	value = ds.GetValue(offset)
@@ -224,7 +224,7 @@ func (ds *DataWriter) GetOne(element int) (time, value uint64, labels []LabelID)
 	return time, value, labels
 }
 
-func (ds *DataWriter) Seal() {
+func (ds *DataStore) Seal() {
 	appended, last := ds.Append(0xffffffffffffffff, 0xffffffffffffffff, nil)
 	if appended {
 		newsize := MultipleOfPageSize(GetHeaderSize() + int(last))
@@ -235,7 +235,7 @@ func (ds *DataWriter) Seal() {
 	ds.Close()
 }
 
-func (ds *DataWriter) Peek() bool {
+func (ds *DataStore) Peek() bool {
 	last := atomic.LoadUint64(ds.cursor)
 	if last+uint64(ds.GetEntrySize()) >= uint64(len(ds.ring)) {
 		return false
@@ -243,7 +243,7 @@ func (ds *DataWriter) Peek() bool {
 	return true
 }
 
-func (ds *DataWriter) Append(time, value uint64, labels []LabelID) (bool, uint64) {
+func (ds *DataStore) Append(time, value uint64, labels []LabelID) (bool, uint64) {
 	last := atomic.LoadUint64(ds.cursor)
 	if last+uint64(ds.GetEntrySize()) >= uint64(len(ds.ring)) {
 		return false, last

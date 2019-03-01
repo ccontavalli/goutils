@@ -8,7 +8,7 @@ import (
 )
 
 func TestOptions(t *testing.T) {
-	options := DefaultDataWriterOptions()
+	options := DefaultDataStoreOptions()
 	options.MaxEntries = 32
 
 	assert.Equal(t, 0, options.GetFileSize()%4096)
@@ -17,7 +17,7 @@ func TestOptions(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	options := DefaultDataWriterOptions()
+	options := DefaultDataStoreOptions()
 	options.MaxEntries = 32
 
 	assert.Equal(t, 0, options.GetFileSize()%4096)
@@ -29,7 +29,7 @@ func TestStore(t *testing.T) {
 	tempdir, err := ioutil.TempDir("", "datastore-")
 	assert.Nil(t, err)
 
-	db, err := OpenDataWriter(filepath.Join(tempdir, "test"), options)
+	db, err := OpenDataStore(filepath.Join(tempdir, "test"), options)
 	assert.Nil(t, err)
 
 	// There are 127 slots in the ring. Up to then, we should be

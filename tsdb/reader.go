@@ -12,21 +12,21 @@ import (
 type shard struct {
 	mintime uint64
 
-	dw *DataWriter
+	dw *DataStore
 	ls *LabelStore
 }
 
 type SerieReader struct {
 	Path string
 
-	DataWriterOptions
+	DataStoreOptions
 	LabelOptions
 
 	shard []shard
 }
 
 func NewSerieReader(dbbasepath string) *SerieReader {
-	return &SerieReader{dbbasepath, DefaultDataWriterOptions(), DefaultLabelOptions(), nil}
+	return &SerieReader{dbbasepath, DefaultDataStoreOptions(), DefaultLabelOptions(), nil}
 }
 
 func (s *SerieReader) ReloadShards() error {

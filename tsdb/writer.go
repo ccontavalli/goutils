@@ -11,19 +11,19 @@ type SerieWriter struct {
 	Path string
 	Id   uint32
 
-	DataWriterOptions
+	DataStoreOptions
 	LabelOptions
 
-	dw *DataWriter
+	dw *DataStore
 	ls *LabelStore
 }
 
 func NewSerieWriter(dbbasepath string) *SerieWriter {
-	return &SerieWriter{dbbasepath, 0, DefaultDataWriterOptions(), DefaultLabelOptions(), nil, nil}
+	return &SerieWriter{dbbasepath, 0, DefaultDataStoreOptions(), DefaultLabelOptions(), nil, nil}
 }
 
 func (serie *SerieWriter) SetMode(mode os.FileMode) {
-	serie.DataWriterOptions.Mode = mode
+	serie.DataStoreOptions.Mode = mode
 	serie.LabelOptions.Mode = mode
 }
 
@@ -34,7 +34,7 @@ func (serie *SerieWriter) Open() error {
 
 	var err error
 	for {
-		serie.dw, err = OpenDataWriter(MakeDataStoreFileName(serie.Path, serie.Id), serie.DataWriterOptions)
+		serie.dw, err = OpenDataStore(MakeDataStoreFileName(serie.Path, serie.Id), serie.DataStoreOptions)
 		if err != nil {
 			return err
 		}
