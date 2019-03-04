@@ -17,6 +17,7 @@ func (m *multiFlag) String() string {
 func (m *multiFlag) Set(value string) error {
 	if m.defaulted {
 		m.array = []string{}
+		m.defaulted = false
 	}
 	m.array = append(m.array, value)
 	return nil
