@@ -21,15 +21,15 @@ func TestStore(t *testing.T) {
 	options.MaxEntries = 32
 
 	assert.Equal(t, 0, options.GetFileSize()%4096)
-	assert.Equal(t, 32, options.GetEntrySize())
-	assert.Equal(t, 127, options.GetEntries())
+	assert.Equal(t, 32, GetEntrySize(options.LabelsPerEntry))
+	assert.Equal(t, 127, options.GetMaxEntries())
 	assert.Greater(t, options.GetFileSize(), 0)
 	assert.Nil(t, options.Valid())
 
 	tempdir, err := ioutil.TempDir("", "datastore-")
 	assert.Nil(t, err)
 
-	db, err := OpenDataStore(filepath.Join(tempdir, "test"), options)
+	db, err := OpenDataStoreForWriting(filepath.Join(tempdir, "test"), options)
 	assert.Nil(t, err)
 
 	// There are 127 slots in the ring. Up to then, we should be

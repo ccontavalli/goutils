@@ -34,16 +34,16 @@ func AddValue() {
 
 	s := tsdb.NewSerieWriter(*fl_serie)
 	if *fl_labelblock > 0 {
-		s.LabelBlock = uint32(*fl_labelblock)
+		s.LabelBlock = *fl_labelblock
 	}
 	if *fl_labelsperentry >= 0 {
 		if *fl_labelsperentry > 256 {
 			log.Fatalf("Cannot store more than 256 labels per entry")
 		}
-		s.LabelsPerEntry = uint8(*fl_labelsperentry)
+		s.LabelsPerEntry = *fl_labelsperentry
 	}
 	if *fl_maxentries > 0 {
-		s.MaxEntries = uint32(*fl_maxentries)
+		s.MaxEntries = *fl_maxentries
 	}
 
 	if len(*fl_label) > int(s.LabelsPerEntry) {

@@ -18,8 +18,8 @@ type LabelOptions struct {
 type LabelID uint32
 
 type LabelStore struct {
-	file *os.File
-	raw  []byte
+	fullpath string
+	raw      []byte
 
 	cache  map[string]LabelID
 	offset int // Initialized by reloadCache
@@ -44,7 +44,21 @@ func (lo LabelOptions) Valid() error {
 	return nil
 }
 
-func OpenLabels(fullpath string, options LabelOptions) (*LabelStore, error) {
+func OpenLabelsForReading(fullpath string) (*LabelStore, error) {
+	file, err := os.OpenFile(fullpath, os.O_RDONLY, 0666)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := mmapFile(file, syscall.PROT_READ)
+	if len(data) <= 0 {
+		return nil, err
+	}
+
+	return &LabelStore{fullpath, data, nil, 0, 0}, nil
+}
+
+func OpenLabelsForWriting(fullpath string, options LabelOptions) (*LabelStore, error) {
 	err := options.Valid()
 	if err != nil {
 		return nil, err
@@ -56,18 +70,22 @@ func OpenLabels(fullpath string, options LabelOptions) (*LabelStore, error) {
 		if err != nil {
 			return nil, err
 		}
+		defer file.Close()
+
 		err = file.Truncate(int64(MultipleOfPageSize(options.LabelBlock)))
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		defer file.Close()
 	}
 
-	data, err := mmapFile(file)
+	data, err := mmapFile(file, syscall.PROT_WRITE)
 	if len(data) <= 0 {
 		return nil, err
 	}
 
-	return &LabelStore{file, data, nil, 0, options.LabelBlock}, nil
+	return &LabelStore{fullpath, data, nil, 0, options.LabelBlock}, nil
 }
 
 func (ls *LabelStore) reloadCache() error {
@@ -114,14 +132,22 @@ func (ds *LabelStore) Sync() {
 	unix.Msync(ds.raw, unix.MS_SYNC|unix.MS_INVALIDATE)
 }
 
-func (ds *LabelStore) Seal() {
-	// TODO: trim size of file!
-	ds.Close()
+func (ls *LabelStore) Seal() {
+	id, err := ls.CreateLabel("")
+	if err != nil {
+		file, err := os.OpenFile(ls.fullpath, os.O_RDWR, 0666)
+		if err != nil {
+			file.Truncate(int64(MultipleOfPageSize(int(id) + 4 - 1)))
+			file.Close()
+		}
+	}
+	ls.Close()
 }
 
-func (ds *LabelStore) Close() {
-	ds.Sync()
-	ds.file.Close()
+func (ls *LabelStore) Close() {
+	ls.Sync()
+	syscall.Munmap(ls.raw)
+	ls.cache = nil
 }
 
 func (ls *LabelStore) resizeFile(extrasize int) error {
@@ -129,9 +155,15 @@ func (ls *LabelStore) resizeFile(extrasize int) error {
 	if newsize <= len(ls.raw) {
 		return fmt.Errorf("Cannot increase file size - would overflow")
 	}
-	ls.file.Truncate(int64(MultipleOfPageSize(newsize)))
 
-	newraw, err := mmapFile(ls.file)
+	file, err := os.OpenFile(ls.fullpath, os.O_RDWR, 0666)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	file.Truncate(int64(MultipleOfPageSize(newsize)))
+
+	newraw, err := mmapFile(file, syscall.PROT_WRITE)
 	if err != nil {
 		return err
 	}

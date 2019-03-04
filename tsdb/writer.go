@@ -34,7 +34,7 @@ func (serie *SerieWriter) Open() error {
 
 	var err error
 	for {
-		serie.dw, err = OpenDataStore(MakeDataStoreFileName(serie.Path, serie.Id), serie.DataStoreOptions)
+		serie.dw, err = OpenDataStoreForWriting(MakeDataStoreFileName(serie.Path, serie.Id), serie.DataStoreOptions)
 		if err != nil {
 			return err
 		}
@@ -47,7 +47,7 @@ func (serie *SerieWriter) Open() error {
 		serie.Id += 1
 	}
 
-	serie.ls, err = OpenLabels(MakeLabelStoreFileName(serie.Path, serie.Id), serie.LabelOptions)
+	serie.ls, err = OpenLabelsForWriting(MakeLabelStoreFileName(serie.Path, serie.Id), serie.LabelOptions)
 	if err != nil {
 		serie.dw.Close()
 		return err
@@ -58,20 +58,25 @@ func (serie *SerieWriter) Open() error {
 
 func (s *SerieWriter) Append(time, value uint64, labels []string) error {
 	for {
-		if s.dw.Peek() {
-			labelids := make([]LabelID, len(labels))
-			for i, label := range labels {
-				id, err := s.ls.CreateLabel(label)
-				if err != nil {
-					return err
+		labelids := []LabelID{}
+		// This tries to avoid creating labels associated to this store if the store is full.
+		if len(labels) > 0 {
+			more, _ := s.dw.PeekAppend()
+			if more {
+				labelids = make([]LabelID, len(labels))
+				for i, label := range labels {
+					id, err := s.ls.CreateLabel(label)
+					if err != nil {
+						return err
+					}
+					labelids[i] = id
 				}
-				labelids[i] = id
 			}
+		}
 
-			ok, _ := s.dw.Append(time, value, labelids)
-			if ok {
-				return nil
-			}
+		ok, _ := s.dw.Append(time, value, labelids)
+		if ok {
+			return nil
 		}
 
 		s.dw.Seal()

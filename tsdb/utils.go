@@ -63,7 +63,7 @@ func MakeLabelStoreFileName(dbbasepath string, number uint32) string {
 	return MakeFileName(dbbasepath, number, "labels")
 }
 
-func mmapFile(f *os.File) ([]byte, error) {
+func mmapFile(f *os.File, flags int) ([]byte, error) {
 	st, err := f.Stat()
 	if err != nil {
 		return []byte{}, err
@@ -72,7 +72,7 @@ func mmapFile(f *os.File) ([]byte, error) {
 	if int64(int(size)) != size {
 		return []byte{}, fmt.Errorf("size of %d overflows int", size)
 	}
-	data, err := syscall.Mmap(int(f.Fd()), 0, int(size), syscall.PROT_READ|syscall.PROT_WRITE, syscall.MAP_SHARED)
+	data, err := syscall.Mmap(int(f.Fd()), 0, int(size), syscall.PROT_READ|flags, syscall.MAP_SHARED)
 	if err != nil {
 		return []byte{}, err
 	}
