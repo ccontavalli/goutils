@@ -1,6 +1,6 @@
 // Various functions to aid writing http servers.
 
-package http
+package httpu
 
 import (
 	"github.com/ccontavalli/goutils/misc"
