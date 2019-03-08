@@ -144,8 +144,9 @@ func (s *SerieReader) Open() error {
 }
 
 type Point struct {
-	Time, Value uint64
-	Label       []string
+	Time  uint64   `json:"time"`
+	Value uint64   `json:"value"`
+	Label []string `json:"label,omitempty"`
 }
 
 type Location struct {
@@ -256,7 +257,7 @@ func (s *SerieReader) GetData(start, end Location, summarizer Summarizer) ([]Poi
 		for j := minelement; j < maxelement; j++ {
 			offset := shard.dw.GetOffset(j)
 			time := shard.dw.GetTime(offset)
-			value := shard.dw.GetTime(offset)
+			value := shard.dw.GetValue(offset)
 
 			points = summarizer(points, Location{shard, j}, time, value)
 		}
