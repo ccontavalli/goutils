@@ -1,6 +1,6 @@
 
 format:
-	for dir in *; do test -d "$$dir" && ( cd "$$dir"; go fmt; ); done;
+	for dir in `find . -type f -name '*.go' -printf '%h\n' |uniq | grep -v '/vendor/'`; do ( cd "$$dir"; go fmt; ); done;
 
 test:
-	for dir in *; do test -d "$$dir" && ( cd "$$dir"; go test -cover; ); done;
+	for dir in `find . -type f -name '*_test.go' -printf '%h\n' |uniq | grep -v '/vendor/'`; do test -d "$$dir" && ( cd "$$dir"; go test -cover; ); done;

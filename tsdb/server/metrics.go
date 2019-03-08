@@ -1,21 +1,20 @@
 package server
 
-
 import (
-	"github.com/ccontavalli/goutils/tsdb"
-	"github.com/ccontavalli/goutils/misc"
+	"encoding/json"
+	"fmt"
 	"github.com/ccontavalli/goutils/httpu"
+	"github.com/ccontavalli/goutils/misc"
+	"github.com/ccontavalli/goutils/tsdb"
 	"net/http"
 	"path"
 	"path/filepath"
-	"encoding/json"
 	"strings"
-	"fmt"
 	"sync"
 )
 
 type lockedSerie struct {
-	lock sync.RWMutex
+	lock   sync.RWMutex
 	reader *tsdb.SerieReader
 }
 
@@ -23,7 +22,7 @@ type MetricsServer struct {
 	MaxEntriesPerReply int
 
 	basepath string
-	sr map[string]*lockedSerie
+	sr       map[string]*lockedSerie
 }
 
 func New(path string) (*MetricsServer, error) {
@@ -39,14 +38,14 @@ func New(path string) (*MetricsServer, error) {
 
 func (ms *MetricsServer) Register(url string, mux *http.ServeMux) {
 	mux.HandleFunc(path.Join(url, "list"), ms.List)
-	mux.HandleFunc(path.Join(url, "get", "offset") + "/", ms.GetOffset)
-	mux.HandleFunc(path.Join(url, "get", "range") + "/", ms.GetRange)
+	mux.HandleFunc(path.Join(url, "get", "offset")+"/", ms.GetOffset)
+	mux.HandleFunc(path.Join(url, "get", "range")+"/", ms.GetRange)
 }
 
 type getRangeRequest struct {
 	// Offset from the end of the first entry to get.
-	Start   uint64 `json:"start"`
-	End     uint64 `json:"end"`
+	Start uint64 `json:"start"`
+	End   uint64 `json:"end"`
 	// Maximum number of entries to return.
 	Entries int `json:"entries"`
 }
@@ -56,7 +55,7 @@ func (ms *MetricsServer) GetRange(w http.ResponseWriter, r *http.Request) {
 
 type GetOffsetRequest struct {
 	// Offset from the end of the first entry to get.
-	Start   uint64 `json:"start"`
+	Start uint64 `json:"start"`
 	// How many entries to retrieve.
 	Entries int `json:"entries"`
 }
@@ -68,7 +67,7 @@ type GetOffsetReply struct {
 	// the # of pointers returned against the entries the server was
 	// willing to return.
 	Request GetOffsetRequest `json:"request"`
-	Point []tsdb.Point `json:"point"`
+	Point   []tsdb.Point     `json:"point"`
 }
 
 func (ms *MetricsServer) getSerieReader(handler string, w http.ResponseWriter, r *http.Request) *lockedSerie {
@@ -80,7 +79,7 @@ func (ms *MetricsServer) getSerieReader(handler string, w http.ResponseWriter, r
 		return nil
 	}
 
-	serie := path[index + len(tostrip):]
+	serie := path[index+len(tostrip):]
 	sr, ok := ms.sr[serie]
 	if !ok {
 		http.Error(w, fmt.Sprintf("unknown serie '%s'", serie), http.StatusBadRequest)
@@ -109,11 +108,11 @@ func (ms *MetricsServer) GetOffset(w http.ResponseWriter, r *http.Request) {
 
 	decoder := json.NewDecoder(r.Body)
 	oreq := GetOffsetRequest{}
-        err := decoder.Decode(&oreq)
-        if err != nil {
-			http.Error(w, fmt.Sprintf("could not decode request '%s'", err), http.StatusBadRequest)
-			return
-        }
+	err := decoder.Decode(&oreq)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("could not decode request '%s'", err), http.StatusBadRequest)
+		return
+	}
 
 	if oreq.Entries <= 0 || oreq.Entries >= ms.MaxEntriesPerReply {
 		oreq.Entries = ms.MaxEntriesPerReply
@@ -132,6 +131,6 @@ func (ms *MetricsServer) GetOffset(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ms *MetricsServer) List(w http.ResponseWriter, r *http.Request) {
-   keys := misc.StringKeysOrPanic(ms.sr)
-   httpu.SendJsonReply(w, keys)
+	keys := misc.StringKeysOrPanic(ms.sr)
+	httpu.SendJsonReply(w, keys)
 }
