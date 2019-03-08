@@ -25,6 +25,25 @@ func ParseFileName(dbbasepath, fullname string) uint32 {
 	return uint32(id)
 }
 
+// basepath is the path of a directory containing multiple series. For example, /path/to/directory.
+func GetSeries(basepath string) []string {
+	pattern := filepath.Join(basepath, "*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]"+".data")
+	matches, _ := filepath.Glob(pattern)
+	sort.Strings(matches)
+
+	found := []string{}
+	previous := ""
+	for _, match := range matches {
+		name := match[:len(match)-14]
+		if name != previous {
+			found = append(found, name)
+		}
+		previous = name
+	}
+	return found
+}
+
+// dbbasepath is the path of a serie. For example, /path/to/directory/serie-name.
 func GetDataFiles(dbbasepath string) []string {
 	pattern := dbbasepath + "-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]" + ".data"
 	matches, _ := filepath.Glob(pattern)
